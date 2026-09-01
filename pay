@@ -17,13 +17,13 @@ def fmt(num: float, force_int: bool = False) -> str:
 
 def parse_smart_value(user_input: str) -> tuple[float | None, str | None]:
     """Extract numeric value and time unit (mo/yr) from input string."""
-    if not user_input: 
+    if not user_input:
         return None, None
-    
+
     user_input = str(user_input).strip().lower()
     unit = 'mo' if 'mo' in user_input else 'yr' if 'yr' in user_input else None
     multiplier = 1000 if 'k' in user_input else 1
-    
+
     # Extract numbers and decimals
     clean_num_str = re.sub(r'[^\d.]', '', user_input.replace(',', ''))
     try:
@@ -36,7 +36,7 @@ def get_input(prompt: str, unit_label: str, allow_zero: bool = False, is_pct: bo
     """Safely get numeric input from CLI args or interactive prompt."""
     if provided_val is not None:
         val, _ = parse_smart_value(str(provided_val))
-        if val is not None: 
+        if val is not None:
             return val
 
     while True:
@@ -54,7 +54,7 @@ def get_input(prompt: str, unit_label: str, allow_zero: bool = False, is_pct: bo
                 print("  Range Allowed : Must be greater than 0")
             print("="*45 + "\n")
             continue
-            
+
         val, _ = parse_smart_value(user_input)
         if val is None:
             print("[!] Invalid input. Please enter a valid number.")
@@ -86,12 +86,12 @@ def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
             print("  Examples      : 5k/mo, 4500/mo, 120k/yr, 95000/yr")
             print("="*45 + "\n")
             continue
-            
+
         val, unit = parse_smart_value(user_input)
         if val is None:
             print("[!] Enter a valid numerical amount.")
             continue
-            
+
         while not unit:
             choice = input(f"[!] You entered ${fmt(val)}. Is this for (1) /mo or (2) /yr? ").strip().lower()
             if choice in ['1', 'mo', '/mo']: 
@@ -100,7 +100,7 @@ def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
                 unit = 'yr'
             else:
                 print("[!] Invalid choice. Enter 1 or 2.")
-                
+
         return (val, val * 12) if unit == 'mo' else (val / 12, val)
 
 def print_result_table(rows: list, header: tuple = ("Item", "Amount", "% of Total"), hour_mode: bool = False) -> None:
@@ -115,7 +115,7 @@ def print_result_table(rows: list, header: tuple = ("Item", "Amount", "% of Tota
             pct_str = f"{pct:>10}"
         else:
             pct_str = ""
-            
+
         is_hour = hour_mode and label == "Hour"
         val_str = f"${fmt(val, force_int=not is_hour):>10}" if isinstance(val, (int, float)) else f"{val:>11}"
         print(f"{label:<20} {val_str}  {pct_str}")
@@ -135,38 +135,38 @@ def get_pay_type() -> str:
 def calc_pay_routing(args: list = None, days_per_week: float = 5.0) -> None:
     """Routes pay calculation based on payment structure (Wage vs Salary)."""
     pay_type = get_pay_type()
-    
+
     # Yearly conversion tracking variables
     weeks_per_year = 52
     hours_per_day = 8
-    
+
     if pay_type == 'wage':
         title("Monthly Pay (Wage)")
         h = get_input("Wage", "hr", provided_val=args if (args and len(args) > 0) else None)
         w_hrs = get_input("Hours/wk", "wk", provided_val=args if (args and len(args) > 1) else None)
-        
+
         w = h * w_hrs
         y = w * weeks_per_year
         m = y / 12
-        
+
         rows = [
-            ("Hour", h, None), 
-            ("Week", w, None), 
-            ("Month", m, None), 
+            ("Hour", h, None),
+            ("Week", w, None),
+            ("Month", m, None),
             ("Year", y, None)
         ]
         print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
-        
+
     else:
         title("Yearly Pay (Salary)")
         _, y = get_any_pay("Annual Pay", args if args else None)
-        
+
         total_hours = days_per_week * hours_per_day * weeks_per_year
-        
+
         rows = [
-            ("Hour", y / total_hours, None), 
-            ("Week", y / weeks_per_year, None), 
-            ("Month", y / 12, None), 
+            ("Hour", y / total_hours, None),
+            ("Week", y / weeks_per_year, None),
+            ("Month", y / 12, None),
             ("Year", y, None)
         ]
         print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
@@ -176,7 +176,7 @@ def calc_rent(args: list = None) -> None:
     rent = get_input("Total Rent", "mo", provided_val=args if (args and len(args) > 0) else None)
     inc = get_input("Monthly Pay", "mo", provided_val=args if (args and len(args) > 1) else None)
     roomies = int(get_input("Roommates", "ppl", True, provided_val=args if (args and len(args) > 2) else None))
-    
+
     split = rent / (roomies + 1)
     rows = [
         ("Monthly Pay", inc, 100.0),
@@ -188,12 +188,12 @@ def calc_rent(args: list = None) -> None:
 def calc_brackets(args: list = None) -> None:
     title("Class Bracket (Pew Research Methodology)")
     _, mid = get_any_pay("Middle class baseline pay", args if args else None)
-    
+
     # Pew Research metrics: Lower (<67%), Middle (67%-200%), Upper (>200%)
     scales = [
-        ("Lower Class", 0.66), 
+        ("Lower Class", 0.66),
         ("Middle Class Minimum", 0.67),
-        ("Median Baseline", 1.00), 
+        ("Median Baseline", 1.00),
         ("Upper Class Minimum", 2.00),
         ("High Earners", 3.00)
     ]
@@ -204,10 +204,10 @@ def calc_invest(args: list = None) -> None:
     title("Investment")
     mo_inc, _ = get_any_pay("Gross Pay", args if (args and len(args) > 0) else None)
     net_p = get_input("Net Pay", "%", is_pct=True, provided_val=args if (args and len(args) > 1) else None)
-    
+
     net_mo = mo_inc * (net_p / 100)
     inv_p = get_input("Allocation", "%", is_pct=True, provided_val=args if (args and len(args) > 2) else None)
-    
+
     rows = [
         ("Net Pay", net_mo, net_p),
         ("  Allocated", net_mo * (inv_p / 100), inv_p),
@@ -226,15 +226,15 @@ def main() -> None:
     }
 
     parser = argparse.ArgumentParser(description="Pay and Budgeting Tool")
-    
+
     parser.add_argument("--hourly-days", type=float, default=5.0, help="Set the number of days worked in a week (Default: 5.0)")
-    
+
     for flag in actions.keys():
         parser.add_argument(f"--{flag.replace('_', '-')}", nargs='*', help=f"Calculate {flag.replace('_', ' ')}")
     parser.add_argument("--all", action="store_true", help="Run all calculation modules interactively")
 
     args = parser.parse_args()
-    
+
     target_flags = [v for k, v in vars(args).items() if k != 'hourly_days' and k != 'all']
     if not args.all and all(v is None for v in target_flags):
         parser.print_help()
