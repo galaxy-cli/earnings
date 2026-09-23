@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+import re
+
+# --- Utilities ---
+
+def title(name: str) -> None:
+    """Print a clean section header."""
+    print(f"\n=== Calculate {name} ===")
+
+def fmt(num: float, force_int: bool = False) -> str:
+    """Format numbers with commas: whole numbers show no decimals,
+    fractional numbers always show exactly two (e.g. $24.50, not $24.5)."""
+    if force_int:
+        return f"{round(num):,}"
+    return f"{num:,.0f}" if num % 1 == 0 else f"{num:,.2f}"
+
+def parse_smart_value(user_input: str) -> tuple[float | None, str | None]:
+    """Extract numeric value and time unit (mo/yr) from input string."""
+    if not user_input:
+        return None, None
+
+    user_input = str(user_input).strip().lower()
+    unit = 'mo' if re.search(r'\bmo\b|/mo|month', user_input) else \
+           'yr' if re.search(r'\byr\b|/yr|year', user_input) else None
+
+    # Find the number itself, and only treat a 'k' as the thousands
+    # shorthand when it's directly attached to the number (e.g. "4.5k",
+    # "250k") -- not just present anywhere in the string. Without this,
+    # unrelated text containing a 'k' (like the "/wk" unit suffix) would
+    # get misread as shorthand and silently 1000x the value.
+    match = re.search(r'([\d,]*\.?\d+)(k)?', user_input)
+    if not match:
+        return None, unit
+
+    num_str = match.group(1).replace(',', '')
+    multiplier = 1000 if match.group(2) else 1
+    try:
+        val = float(num_str) * multiplier
+        return val, unit
+    except ValueError:
+        return None, unit
+
+def get_input(prompt: str, unit_label: str, allow_zero: bool = False, is_pct: bool = False, provided_val: str = None) -> float:
+    """Safely get numeric input from CLI args or interactive prompt."""
+    if provided_val is not None:
+        val, _ = parse_smart_value(str(provided_val))
+        if val is not None:
+            if (allow_zero or val > 0) and (not is_pct or 0 <= val <= 100):
+                return val
+            print(f"[!] Ignoring invalid CLI value '{provided_val}' for {prompt}; falling back to prompt.")
+        else:
+            print(f"[!] Could not parse CLI value '{provided_val}' for {prompt}; falling back to prompt.")
+
+    while True:
+        user_input = input(f"{prompt} ({unit_label}): ").strip().lower()
+
+        val, _ = parse_smart_value(user_input)
+        if val is None:
+            print("[!] Invalid input. Please enter a valid number.")
+            continue
+        if not allow_zero and val <= 0:
+            print("[!] Must be greater than zero.")
+            continue
+        if is_pct and not (0 <= val <= 100):
+            print("[!] Percentage must be between 0 and 100.")
+            continue
+        return val
+
+def prompt_for_unit(val: float, prompt: str) -> str:
+    """Ask the user whether a bare amount is monthly or yearly."""
+    while True:
+        choice = input(f"[!] You entered ${fmt(val)} for {prompt}. Is this for /mo or /yr? ").strip().lower()
+        if choice == '/mo':
+            return 'mo'
+        if choice == '/yr':
+            return 'yr'
+        print("[!] Invalid choice. Enter /mo or /yr.")
+
+def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
+    """Safely get earnings and return both monthly and annual amounts."""
+    if provided_val is not None:
+        val, unit = parse_smart_value(str(provided_val))
+        if val is not None and val > 0:
+            if not unit:
+                unit = prompt_for_unit(val, prompt)
+            return (val, val * 12) if unit == 'mo' else (val / 12, val)
+        print(f"[!] Ignoring invalid CLI value '{provided_val}' for {prompt}; falling back to prompt.")
+
+    while True:
+        user_input = input(f"{prompt}: ").strip()
+
+        val, unit = parse_smart_value(user_input)
+        if val is None or val <= 0:
+            print("[!] Enter a valid numerical amount greater than zero.")
+            continue
+
+        if not unit:
+            unit = prompt_for_unit(val, prompt)
+
+        return (val, val * 12) if unit == 'mo' else (val / 12, val)
+
+def print_result_table(rows: list, header: tuple = ("Monthly", "Amount", "% of Income"), hour_mode: bool = False) -> None:
+    """Print results as a clean, auto-sized, boxed table. The % column is
+    omitted entirely when no row in this table actually uses one."""
+    h1, h2, h3 = header
+    show_pct = any(pct is not None for _, _, pct in rows)
+
+    formatted_rows = []
+    for label, val, pct in rows:
+        is_hour = hour_mode and label == "Hour"
+        val_str = f"${fmt(val, force_int=not is_hour)}"
+        if isinstance(pct, (int, float)):
+            pct_str = f"{pct:.1f}%"
+        else:
+            pct_str = str(pct) if pct is not None else ""
+        formatted_rows.append((label, val_str, pct_str))
+
+    col1_w = max(len(h1), *(len(r[0]) for r in formatted_rows))
+    col2_w = max(len(h2), *(len(r[1]) for r in formatted_rows))
+    col3_w = max(len(h3), *(len(r[2]) for r in formatted_rows)) if show_pct else 0
+
+    def border(left: str, mid: str, right: str) -> str:
+        segs = ["─" * (col1_w + 2), "─" * (col2_w + 2)]
+        if show_pct:
+            segs.append("─" * (col3_w + 2))
+        return left + mid.join(segs) + right
+
+    def row_line(c1: str, c2: str, c3: str) -> str:
+        if show_pct:
+            return f"│ {c1:<{col1_w}} │ {c2:>{col2_w}} │ {c3:>{col3_w}} │"
+        return f"│ {c1:<{col1_w}} │ {c2:>{col2_w}} │"
+
+    print()
+    print(border("┌", "┬", "┐"))
+    print(row_line(h1, h2, h3))
+    print(border("├", "┼", "┤"))
+    for label, val_str, pct_str in formatted_rows:
+        print(row_line(label, val_str, pct_str))
+    print(border("└", "┴", "┘"))
+
+# --- Logic Modules ---
+
+def calc_hourly_pay(args: list = None) -> None:
+    """Calculate earnings breakdown from an hourly rate."""
+    title("Income Breakdown (Hourly)")
+    weeks_per_year = 52
+
+    h = get_input("Hourly Rate", "hr", provided_val=args[0] if (args and len(args) > 0) else None)
+    wk = get_input("Workweek", "wk", provided_val=args[1] if (args and len(args) > 1) else None)
+
+    w = h * wk
+    y = w * weeks_per_year
+    m = y / 12
+
+    rows = [
+        ("Hour", h, None),
+        ("Week", w, None),
+        ("Month", m, None),
+        ("Year", y, None)
+    ]
+    print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
+
+def calc_annual_pay(args: list = None) -> None:
+    """Calculate earnings breakdown from an annual (or monthly)."""
+    title("Income Breakdown (Annual)")
+    weeks_per_year = 52
+    hours_per_week = 40  # Assumes a standard 5-day, 8-hour workweek
+
+    _, y = get_any_pay("Annual Income", args[0] if (args and len(args) > 0) else None)
+
+    total_hours = hours_per_week * weeks_per_year
+
+    rows = [
+        ("Hour", y / total_hours, None),
+        ("Week", y / weeks_per_year, None),
+        ("Month", y / 12, None),
+        ("Year", y, None)
+    ]
+    print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
+
+def calc_rent(args: list = None) -> None:
+    title("Rent Split")
+    inc = get_input("Monthly Income", "mo", provided_val=args[1] if (args and len(args) > 1) else None)
+    rent = get_input("Monthly Rent", "mo", provided_val=args[0] if (args and len(args) > 0) else None)
+    roomies = int(get_input("Roommates", "ppl", True, provided_val=args[2] if (args and len(args) > 2) else None))
+
+    split = rent / (roomies + 1)
+    rows = [
+        ("Income", inc, None),
+        (f"Rent ({'Solo' if roomies == 0 else f'Split {roomies + 1} Ways'})", split, (split / inc) * 100),
+        ("Income After Rent", inc - split, (1 - split / inc) * 100)
+    ]
+    print_result_table(rows)
+
+# --- CLI Setup ---
+
+def main() -> None:
+    actions = {
+        "hourly_rate": calc_hourly_pay,
+        "annual_rate": calc_annual_pay,
+        "monthly_rent": calc_rent
+    }
+
+    # add_help=False lets us add -h/--help manually at the end, so it's
+    # listed last in --help output instead of first.
+    parser = argparse.ArgumentParser(description="Income and Budgeting Tool", add_help=False)
+
+    for flag in actions.keys():
+        parser.add_argument(f"--{flag.replace('_', '-')}", nargs='*', help=f"Calculate {flag.replace('_', ' ')}")
+    parser.add_argument("--all", action="store_true", help="Run all calculation modules interactively")
+    parser.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
+
+    args = parser.parse_args()
+
+    target_flags = [v for k, v in vars(args).items() if k != 'all']
+    if not args.all and all(v is None for v in target_flags):
+        parser.print_usage()
+        return
+
+    try:
+        if args.all:
+            for name, func in actions.items():
+                prompt_str = f"Run {name.replace('_', ' ')}? [y/N]: "
+                user_res = input(prompt_str).strip().split()
+                if user_res and user_res[0].lower() == 'y':
+                    extra_args = user_res[1:] if len(user_res) > 1 else None
+                    func(extra_args)
+        else:
+            for flag, func in actions.items():
+                val = getattr(args, flag)
+                if val is not None:
+                    func(val if len(val) > 0 else None)
+    except KeyboardInterrupt:
+        print("\n\n[!] Operation cancelled by user.")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()

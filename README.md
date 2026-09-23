@@ -1,60 +1,85 @@
-# Pay and Budgeting Tool
+# Earnings and Budgeting Tool
 
-A robust, highly interactive command-line application written in Python to help individuals convert, split, and allocate their pay dynamically. Built to replace vague financial assumptions with precise metrics, the tool routes configurations based entirely on your exact employment structure (Wage vs. Salary).
+A command-line utility for turning an hourly rate or an annual/monthly salary
+into a full pay breakdown, and for splitting monthly rent with roommates.
+Every calculator can be run non-interactively via CLI arguments, interactively
+via prompts, or a mix of both — any value you don't supply is simply asked
+for.
 
 ## Features
 
-- **Adaptive Employment Routing**: Intelligently alters its logical flow depending on whether you earn an hourly wage or a rigid annual salary.
-- **Context-Aware Dynamic Help**: Typing `?` inside any prompt generates an immediate visual box displaying formatting patterns, real-world baseline examples, and allowed percent/integer boundary rules.
-- **Pew Research Methodology**: Calibrates economic class tiering matrices against strict Pew parameters (<66% for Lower Class, 67%+ for Middle, and 200%+ for Upper Class entry benchmarks).
-- **Flexible Work Week Conversions**: Offers a dedicated `--hourly-days` flag to redefine custom working schedules instead of locking calculators to standard 5-day baselines.
-- **No Silently Mutated Data**: Stripped of hidden truncation rules, putting clean, precise financial metrics directly back in your control.
+- **Hourly Rate Breakdown**: Converts an hourly rate and a workweek into
+  weekly, monthly, and yearly totals.
+- **Annual Income Breakdown**: Converts an annual (or monthly) salary into
+  its hourly, weekly, monthly, and yearly equivalents, assuming a standard
+  40-hour (5-day, 8-hour) workweek.
+- **Rent Split**: Splits monthly rent evenly across roommates and shows the
+  income remaining after rent.
+- **Smart Value Parsing**: Accepts plain numbers or shorthand like `4.5k` /
+  `250k` for thousands, and `/mo` / `/yr` (or "month" / "year") to indicate
+  a time frame. The `k` shorthand only applies when it's attached directly
+  to a number, so it won't misfire on unrelated text in the same input.
+- **CLI or Interactive**: Pass values straight on the command line, or leave
+  a flag bare to be walked through prompts. Invalid or out-of-range CLI
+  values are rejected with a warning and the tool falls back to prompting
+  instead of silently accepting bad data.
+- **Clean Table Output**: Results print as auto-sized, boxed tables; columns
+  that aren't used by a given calculator (like `% of Total`) are omitted
+  rather than left blank.
 
 ---
 
 ## Usage & Flags
 
-You can run individual specialized evaluation blocks using dedicated CLI arguments, or launch the interactive master program suite using the global `--all` runner.
-
-### Global Module Execution
+### Run Everything Interactively
 ```bash
-pay --all
+earnings --all
 ```
+Walks through each calculator one at a time, asking `[y/N]` whether to run
+it (and accepting inline values after the `y`, e.g. `y 24.50 40`).
 
 ### Targeted Command Flags
 ```bash
-# Evaluate wage structures and salary breakdown mechanics
-pay --pay-metrics
+# Hourly rate -> weekly / monthly / yearly breakdown
+earnings --hourly-rate
 
-# Evaluate roommate housing split percentages and balance reserves 
-pay --monthly-rent
+# Annual (or monthly) income -> hourly / weekly / monthly / yearly breakdown
+earnings --annual-rate
 
-# Evaluate economic baseline class tier thresholds via Pew metrics
-pay --pay-bracket
-
-# Run investment allocation waterfalls against gross-to-net pay
-pay --investment
+# Split monthly rent across roommates
+earnings --monthly-rent
 ```
 
-### Custom Work Schedules
-Redefine structural salary breakdowns to hours by setting exact days worked in a standard week (Default baseline is `5.0`):
+Each flag also accepts its values inline, in order, skipping the matching
+prompt(s):
 ```bash
-pay --pay-metrics --hourly-days 4.5
+earnings --hourly-rate 24.50 40           # rate, hours/week
+earnings --annual-rate 80k/yr             # annual amount
+earnings --monthly-rent 1500 4500 2       # rent, income, roommates
+```
+
+### Help
+```bash
+earnings            # prints usage only
+earnings -h         # prints full option list
+earnings --help     # same as -h
 ```
 
 ---
 
 ## Input Syntax Examples
 
-When prompted for values inside the utility framework, you can type plain integers or use clean shorthand formatting tricks:
+When prompted for a value, you can type a plain number or use shorthand:
 
-- **Shorthand Scale**: Entering `5k/mo` automatically processes as `$5,000.00` per month.
-- **Time Frameworks**: Entering `120k/yr` scales calculations across annual parameters automatically.
-- **Percentages**: Entering `80` dynamically evaluates calculations relative to an exact `80%` net footprint.
+- **Thousands shorthand**: `5k` parses as `5000`; `4.5k` parses as `4500`.
+- **Time frame**: for income amounts, add `/mo` or `/yr` to skip the
+  follow-up question — e.g. `5k/mo`, `120k/yr`. If you enter a bare number
+  with no time frame, you'll be asked to type `/mo` or `/yr` to clarify.
 
 ---
 
 ## Requirements
 
-- Python 3.10 or newer (uses explicit type hinting syntax like `float | None`).
-- Zero external package dependencies. Runs natively out of the box using built-in system modules (`argparse`, `sys`, `re`).
+- Python 3.10 or newer (uses `float | None` type hint syntax).
+- Zero external dependencies — only the standard library (`argparse`, `sys`,
+  `re`).
