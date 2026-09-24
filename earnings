@@ -17,12 +17,13 @@ def fmt(num: float, force_int: bool = False) -> str:
     return f"{num:,.0f}" if num % 1 == 0 else f"{num:,.2f}"
 
 def parse_smart_value(user_input: str) -> tuple[float | None, str | None]:
-    """Extract numeric value and time unit (mo/yr) from input string."""
+    """Extract numeric value and time unit (wk/mo/yr) from input string."""
     if not user_input:
         return None, None
 
     user_input = str(user_input).strip().lower()
-    unit = 'mo' if re.search(r'\bmo\b|/mo|month', user_input) else \
+    unit = 'wk' if re.search(r'\bwk\b|/wk|week', user_input) else \
+           'mo' if re.search(r'\bmo\b|/mo|month', user_input) else \
            'yr' if re.search(r'\byr\b|/yr|year', user_input) else None
 
     # Find the number itself, and only treat a 'k' as the thousands
@@ -69,14 +70,25 @@ def get_input(prompt: str, unit_label: str, allow_zero: bool = False, is_pct: bo
         return val
 
 def prompt_for_unit(val: float, prompt: str) -> str:
-    """Ask the user whether a bare amount is monthly or yearly."""
+    """Ask the user whether a bare amount is weekly, monthly, or yearly."""
     while True:
-        choice = input(f"[!] You entered ${fmt(val)} for {prompt}. Is this for /mo or /yr? ").strip().lower()
+        choice = input(f"[!] You entered ${fmt(val)} for {prompt}. Is this for /wk, /mo, or /yr? ").strip().lower()
+        if choice == '/wk':
+            return 'wk'
         if choice == '/mo':
             return 'mo'
         if choice == '/yr':
             return 'yr'
-        print("[!] Invalid choice. Enter /mo or /yr.")
+        print("[!] Invalid choice. Enter /wk, /mo, or /yr.")
+
+def _to_monthly_annual(val: float, unit: str) -> tuple[float, float]:
+    """Convert a value in the given unit (wk/mo/yr) to (monthly, annual)."""
+    if unit == 'wk':
+        annual = val * 52
+        return annual / 12, annual
+    if unit == 'mo':
+        return val, val * 12
+    return val / 12, val  # yr
 
 def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
     """Safely get earnings and return both monthly and annual amounts."""
@@ -85,7 +97,7 @@ def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
         if val is not None and val > 0:
             if not unit:
                 unit = prompt_for_unit(val, prompt)
-            return (val, val * 12) if unit == 'mo' else (val / 12, val)
+            return _to_monthly_annual(val, unit)
         print(f"[!] Ignoring invalid CLI value '{provided_val}' for {prompt}; falling back to prompt.")
 
     while True:
@@ -99,9 +111,9 @@ def get_any_pay(prompt: str, provided_val: str = None) -> tuple[float, float]:
         if not unit:
             unit = prompt_for_unit(val, prompt)
 
-        return (val, val * 12) if unit == 'mo' else (val / 12, val)
+        return _to_monthly_annual(val, unit)
 
-def print_result_table(rows: list, header: tuple = ("Monthly", "Amount", "% of Income"), hour_mode: bool = False) -> None:
+def print_result_table(rows: list, header: tuple = ("Monthly", "Amount", "% of Total"), hour_mode: bool = False) -> None:
     """Print results as a clean, auto-sized, boxed table. The % column is
     omitted entirely when no row in this table actually uses one."""
     h1, h2, h3 = header
@@ -189,8 +201,8 @@ def calc_rent(args: list = None) -> None:
     split = rent / (roomies + 1)
     rows = [
         ("Income", inc, None),
-        (f"Rent ({'Solo' if roomies == 0 else f'Split {roomies + 1} Ways'})", split, (split / inc) * 100),
-        ("Income After Rent", inc - split, (1 - split / inc) * 100)
+        (f"Rent ({'Solo' if roomies == 0 else 'Split'})", split, (split / inc) * 100),
+        ("Available Cash Balance", inc - split, (1 - split / inc) * 100)
     ]
     print_result_table(rows)
 

@@ -53,7 +53,7 @@ earnings --monthly-rent
 Each flag also accepts its values inline, in order, skipping the matching
 prompt(s):
 ```bash
-earnings --hourly-rate 24.50 40           # rate, hours/week
+earnings --hourly-rate 24.50 40          # rate, hours/week
 earnings --annual-rate 80k/yr             # annual amount
 earnings --monthly-rent 1500 4500 2       # rent, income, roommates
 ```
@@ -72,9 +72,10 @@ earnings --help     # same as -h
 When prompted for a value, you can type a plain number or use shorthand:
 
 - **Thousands shorthand**: `5k` parses as `5000`; `4.5k` parses as `4500`.
-- **Time frame**: for income amounts, add `/mo` or `/yr` to skip the
-  follow-up question — e.g. `5k/mo`, `120k/yr`. If you enter a bare number
-  with no time frame, you'll be asked to type `/mo` or `/yr` to clarify.
+- **Time frame**: for income amounts, add `/wk`, `/mo`, or `/yr` to skip the
+  follow-up question — e.g. `1k/wk`, `5k/mo`, `120k/yr`. If you enter a bare
+  number with no time frame, you'll be asked to type `/wk`, `/mo`, or `/yr`
+  to clarify.
 
 ---
 
