@@ -167,10 +167,11 @@ def calc_hourly_pay(args: list = None) -> None:
     m = y / 12
 
     rows = [
-        ("Hour", h, None),
-        ("Week", w, None),
-        ("Month", m, None),
-        ("Year", y, None)
+        ("Hourly", h, None),
+        ("Weekly", w, None),
+        ("Bi-Weekly", w*2, None),
+        ("Monthly", m, None),
+        ("Yearly", y, None)
     ]
     print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
 
@@ -185,10 +186,11 @@ def calc_annual_pay(args: list = None) -> None:
     total_hours = hours_per_week * weeks_per_year
 
     rows = [
-        ("Hour", y / total_hours, None),
-        ("Week", y / weeks_per_year, None),
-        ("Month", y / 12, None),
-        ("Year", y, None)
+        ("Hourly", y / total_hours, None),
+        ("Weekly", y / weeks_per_year, None),
+        ("Bi-Weekly", (y / weeks_per_year)*2, None),
+        ("Monthly", y / 12, None),
+        ("Yearly", y, None)
     ]
     print_result_table(rows, header=("Period", "Amount", ""), hour_mode=True)
 
